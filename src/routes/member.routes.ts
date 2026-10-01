@@ -16,6 +16,7 @@ import {
   toggleFreezeMember,
   toggleBlockMember,
   assignMemberBatch,
+  updateMemberPhoto,
 } from "../controllers/member.controller.js";
 import { listPayments, addPayment, deletePayment } from "../controllers/payment.controller.js";
 import { listMeasurements, addMeasurement, deleteMeasurement } from "../controllers/measurement.controller.js";
@@ -52,6 +53,7 @@ router.delete("/:id/plan", authenticate, requirePermission("memberships.delete")
 router.patch("/:id/freeze", authenticate, requirePermission("memberships.freeze"), toggleFreezeMember);
 router.patch("/:id/block", authenticate, requirePermission("members.edit"), toggleBlockMember);
 router.patch("/:id/batch", authenticate, requirePermission("memberships.edit"), assignMemberBatch);
+router.patch("/:id/photo", authenticate, requirePermission("members.edit"), uploadMemberPhoto, updateMemberPhoto);
 
 // Payments
 router.get("/:id/payments", authenticate, requirePermission("memberships.view"), listPayments);

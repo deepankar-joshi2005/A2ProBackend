@@ -159,10 +159,30 @@ export const deleteMember = async (req: AuthRequest, res: Response): Promise<voi
 
 export const getNextMembershipId = async (_req: AuthRequest, res: Response): Promise<void> => {
   const members = await Member.find({}, "membershipId");
-  const max = members.reduce((m, x) => {
-    const n = Number(x.membershipId);
-    return Number.isFinite(n) && n > m ? n : m;
-  }, 0);
+
+  // Collect all numeric membership IDs that exist
+  const usedIds = new Set(
+    members
+      .map((x) => Number(x.membershipId))
+      .filter((n) => Number.isFinite(n) && n > 0)
+  );
+
+  if (usedIds.size === 0) {
+    res.json({ nextMembershipId: "1" });
+    return;
+  }
+
+  const max = Math.max(...usedIds);
+
+  // Find the smallest missing positive integer in the used set
+  for (let i = 1; i <= max; i++) {
+    if (!usedIds.has(i)) {
+      res.json({ nextMembershipId: String(i) });
+      return;
+    }
+  }
+
+  // No gap found — use max + 1
   res.json({ nextMembershipId: String(max + 1) });
 };
 
@@ -344,3 +364,23 @@ export const getMyProfile = async (req: AuthRequest, res: Response): Promise<voi
   }
 };
 
+
+export const updateMemberPhoto = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const member = await Member.findById(req.params.id);
+    if (!member) {
+      res.status(404).json({ message: "Member not found" });
+      return;
+    }
+    if (!req.file) {
+      res.status(400).json({ message: "No photo uploaded" });
+      return;
+    }
+    member.photoUrl = `/uploads/members/${req.file.filename}`;
+    await member.save();
+    await member.populate("planId", "name amount durationInDays");
+    res.json({ member });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err });
+  }
+};
