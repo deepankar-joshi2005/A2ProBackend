@@ -110,7 +110,7 @@ export const createMember = async (req: AuthRequest, res: Response): Promise<voi
 
     const member = await Member.create({
       name: b.name,
-      photoUrl: req.file ? `/uploads/members/${req.file.filename}` : null,
+      photoUrl: req.file ? (req.file as any).path : null,
       gender: b.gender,
       countryCode: b.countryCode || "+91",
       mobile: b.mobile,
@@ -376,7 +376,7 @@ export const updateMemberPhoto = async (req: AuthRequest, res: Response): Promis
       res.status(400).json({ message: "No photo uploaded" });
       return;
     }
-    member.photoUrl = `/uploads/members/${req.file.filename}`;
+    member.photoUrl = (req.file as any).path;
     await member.save();
     await member.populate("planId", "name amount durationInDays");
     res.json({ member });
