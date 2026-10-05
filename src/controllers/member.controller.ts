@@ -38,6 +38,14 @@ export const listMembers = async (req: AuthRequest, res: Response): Promise<void
   const members = await Member.find(query)
     .sort({ createdAt: -1 })
     .populate("planId", "name amount durationInDays");
+
+  // Sort by numeric membershipId (1,2,3... not lexicographic 1,10,2...)
+  members.sort((a, b) => {
+    const aNum = Number(a.membershipId);
+    const bNum = Number(b.membershipId);
+    if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+    return a.membershipId.localeCompare(b.membershipId);
+  });
   res.json({ members });
 };
 
