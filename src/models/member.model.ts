@@ -21,6 +21,7 @@ export interface IMember extends Document {
   discountValue: number;
   admissionFees: number;
   dueAmount: number;
+  planStartDate: Date | null;
   planExpiryDate: Date | null;
   email: string;
   dob: Date | null;
@@ -57,6 +58,7 @@ const memberSchema = new Schema<IMember>(
     discountValue: { type: Number, default: 0, min: 0 },
     admissionFees: { type: Number, default: 0, min: 0 },
     dueAmount: { type: Number, default: 0, min: 0 },
+    planStartDate: { type: Date, default: null },
     planExpiryDate: { type: Date, default: null },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     dob: { type: Date, default: null },

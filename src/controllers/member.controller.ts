@@ -61,7 +61,7 @@ export const getMemberById = async (req: AuthRequest, res: Response): Promise<vo
 export const createMember = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const b = req.body;
-    if (!b.name || !b.gender || !b.mobile || !b.membershipId || !b.planId || !b.joiningDate || !b.email) {
+    if (!b.name || !b.gender || !b.mobile || !b.membershipId || !b.planId || !b.joiningDate) {
       res.status(400).json({ message: "Missing required fields" });
       return;
     }
@@ -73,8 +73,8 @@ export const createMember = async (req: AuthRequest, res: Response): Promise<voi
       res.status(409).json({ message: "Mobile number already registered" });
       return;
     }
-    const email = String(b.email).toLowerCase();
-    if (await Member.findOne({ email })) {
+    const email = b.email ? String(b.email).toLowerCase() : null;
+    if (email && await Member.findOne({ email })) {
       res.status(409).json({ message: "Email already registered to a member" });
       return;
     }
@@ -89,31 +89,34 @@ export const createMember = async (req: AuthRequest, res: Response): Promise<voi
     const admissionFees = Number(b.admissionFees) || 0;
     const paidAmount = Number(b.paidAmount) || 0;
     const joiningDate = new Date(b.joiningDate);
+    const planStartDate = b.planStartDate ? new Date(b.planStartDate) : joiningDate;
+    const planExpiryDate = b.planExpiryDate ? new Date(b.planExpiryDate) : addDays(joiningDate, plan.durationInDays);
     const dueAmount = computeDueAmount(plan.amount, discountType, discountValue, admissionFees, paidAmount);
-    const planExpiryDate = addDays(joiningDate, plan.durationInDays);
 
     const rawPassword = b.password && String(b.password).trim().length >= 6 ? String(b.password).trim() : "123456";
     let accountUserId = null;
-    try {
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        if (b.password && String(b.password).trim().length >= 6) {
-          existingUser.password = await bcrypt.hash(rawPassword, 10);
-          await existingUser.save();
+    if (email) {
+      try {
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+          if (b.password && String(b.password).trim().length >= 6) {
+            existingUser.password = await bcrypt.hash(rawPassword, 10);
+            await existingUser.save();
+          }
+          accountUserId = existingUser._id;
+        } else {
+          const hashed = await bcrypt.hash(rawPassword, 10);
+          const newUser = await User.create({
+            name: b.name,
+            email,
+            password: hashed,
+            role: "user",
+          });
+          accountUserId = newUser._id;
         }
-        accountUserId = existingUser._id;
-      } else {
-        const hashed = await bcrypt.hash(rawPassword, 10);
-        const newUser = await User.create({
-          name: b.name,
-          email,
-          password: hashed,
-          role: "user",
-        });
-        accountUserId = newUser._id;
+      } catch (userErr) {
+        console.warn("Could not auto-create user account for member:", userErr);
       }
-    } catch (userErr) {
-      console.warn("Could not auto-create user account for member:", userErr);
     }
 
     const member = await Member.create({
@@ -126,6 +129,7 @@ export const createMember = async (req: AuthRequest, res: Response): Promise<voi
       planId: plan._id,
       planAmount: plan.amount,
       joiningDate,
+      planStartDate,
       paymentDate: b.paymentDate ? new Date(b.paymentDate) : null,
       paidAmount,
       paymentMethod: b.paymentMethod || null,
@@ -135,7 +139,7 @@ export const createMember = async (req: AuthRequest, res: Response): Promise<voi
       admissionFees,
       dueAmount,
       planExpiryDate,
-      email,
+      email: email ?? "",
       dob: b.dob ? new Date(b.dob) : null,
       address: b.address || "",
       notes: b.notes || "",
@@ -253,21 +257,12 @@ export const renewMemberPlan = async (req: AuthRequest, res: Response): Promise<
 
     const dueAmount = computeDueAmount(plan.amount, discountType, discountValue, admissionFees, paidAmount);
 
-    const now = new Date();
-    const currentExpiry = member.planExpiryDate ? new Date(member.planExpiryDate) : new Date(0);
     const startDateInput = b.planStartDate ? new Date(b.planStartDate) : new Date();
-
-    let baseDate: Date;
-    if (currentExpiry > now) {
-      baseDate = currentExpiry;
-    } else {
-      baseDate = startDateInput;
-    }
-
-    const newExpiryDate = addDays(baseDate, plan.durationInDays);
+    const newExpiryDate = b.planExpiryDate ? new Date(b.planExpiryDate) : addDays(startDateInput, plan.durationInDays);
 
     member.planId = plan._id as any;
     member.planAmount = plan.amount;
+    member.planStartDate = startDateInput;
     member.planExpiryDate = newExpiryDate;
     member.dueAmount = dueAmount;
     member.paidAmount = paidAmount;
