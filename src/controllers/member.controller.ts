@@ -93,19 +93,20 @@ export const createMember = async (req: AuthRequest, res: Response): Promise<voi
     const planExpiryDate = b.planExpiryDate ? new Date(b.planExpiryDate) : addDays(joiningDate, plan.durationInDays);
     const dueAmount = computeDueAmount(plan.amount, discountType, discountValue, admissionFees, paidAmount);
 
-    const rawPassword = b.password && String(b.password).trim().length >= 6 ? String(b.password).trim() : "123456";
+    const hasPassword = !!(b.password && String(b.password).trim().length >= 6);
+    const rawPassword = hasPassword ? String(b.password).trim() : null;
     let accountUserId = null;
     if (email) {
       try {
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-          if (b.password && String(b.password).trim().length >= 6) {
-            existingUser.password = await bcrypt.hash(rawPassword, 10);
+          if (hasPassword) {
+            existingUser.password = await bcrypt.hash(rawPassword as string, 10);
             await existingUser.save();
           }
           accountUserId = existingUser._id;
-        } else {
-          const hashed = await bcrypt.hash(rawPassword, 10);
+        } else if (hasPassword) {
+          const hashed = await bcrypt.hash(rawPassword as string, 10);
           const newUser = await User.create({
             name: b.name,
             email,
@@ -114,6 +115,7 @@ export const createMember = async (req: AuthRequest, res: Response): Promise<voi
           });
           accountUserId = newUser._id;
         }
+        // No password entered and no existing account: skip creating a portal login.
       } catch (userErr) {
         console.warn("Could not auto-create user account for member:", userErr);
       }
