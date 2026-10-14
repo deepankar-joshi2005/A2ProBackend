@@ -23,7 +23,7 @@ export interface IMember extends Document {
   dueAmount: number;
   planStartDate: Date | null;
   planExpiryDate: Date | null;
-  email: string;
+  email?: string;
   dob: Date | null;
   address: string;
   notes: string;
@@ -60,7 +60,7 @@ const memberSchema = new Schema<IMember>(
     dueAmount: { type: Number, default: 0, min: 0 },
     planStartDate: { type: Date, default: null },
     planExpiryDate: { type: Date, default: null },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
     dob: { type: Date, default: null },
     address: { type: String, default: "" },
     notes: { type: String, default: "" },

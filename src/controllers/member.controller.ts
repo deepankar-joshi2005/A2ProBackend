@@ -139,7 +139,7 @@ export const createMember = async (req: AuthRequest, res: Response): Promise<voi
       admissionFees,
       dueAmount,
       planExpiryDate,
-      email: email ?? "",
+      email: email || undefined,
       dob: b.dob ? new Date(b.dob) : null,
       address: b.address || "",
       notes: b.notes || "",
