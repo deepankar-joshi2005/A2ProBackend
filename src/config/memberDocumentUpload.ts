@@ -1,5 +1,6 @@
 import multer from "multer";
 import { Request, Response, NextFunction } from "express";
+import { UploadApiErrorResponse, UploadApiResponse } from "cloudinary";
 import cloudinary from "./cloudinary.js";
 
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"];
@@ -22,7 +23,7 @@ export const uploadMemberDocument = (req: Request, res: Response, next: NextFunc
       const result = await new Promise<any>((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           { folder: "a2profitnes/member-documents" },
-          (error, result) => {
+          (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
             if (error) reject(error);
             else resolve(result);
           }

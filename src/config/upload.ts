@@ -1,5 +1,6 @@
 import multer from "multer";
 import { Request, Response, NextFunction } from "express";
+import { UploadApiErrorResponse, UploadApiResponse } from "cloudinary";
 import cloudinary from "./cloudinary.js";
 
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"];
@@ -27,7 +28,7 @@ export const uploadMemberPhoto = (req: Request, res: Response, next: NextFunctio
             folder: "a2profitnes/members",
             transformation: [{ width: 500, height: 500, crop: "fill", gravity: "face" }],
           },
-          (error, result) => {
+          (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
             if (error) reject(error);
             else resolve(result);
           }

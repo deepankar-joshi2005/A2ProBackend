@@ -17,6 +17,7 @@ import {
   toggleBlockMember,
   assignMemberBatch,
   updateMemberPhoto,
+  updateMemberBasicDetails,
 } from "../controllers/member.controller.js";
 import { listPayments, addPayment, deletePayment } from "../controllers/payment.controller.js";
 import { listMeasurements, addMeasurement, deleteMeasurement } from "../controllers/measurement.controller.js";
@@ -46,6 +47,7 @@ router.get("/check-membership-id", authenticate, requirePermission("members.add"
 router.get("/", authenticate, requirePermission("members.view"), listMembers);
 router.get("/:id", authenticate, requirePermission("members.view"), getMemberById);
 router.post("/", authenticate, requirePermission("members.add"), uploadMemberPhoto, createMember);
+router.patch("/:id", authenticate, requirePermission("members.edit"), updateMemberBasicDetails);
 router.delete("/:id", authenticate, requirePermission("members.delete"), deleteMember);
 router.post("/:id/create-account", authenticate, requirePermission("memberships.edit"), createMemberAccount);
 router.post("/:id/renew-plan", authenticate, requirePermission("memberships.edit"), renewMemberPlan);

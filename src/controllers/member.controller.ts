@@ -370,6 +370,118 @@ export const getMyProfile = async (req: AuthRequest, res: Response): Promise<voi
 };
 
 
+export const updateMemberBasicDetails = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const member = await Member.findById(req.params.id);
+    if (!member) {
+      res.status(404).json({ message: "Member not found" });
+      return;
+    }
+
+    const {
+      name,
+      email: rawEmail,
+      mobile,
+      countryCode,
+      gender,
+      dob,
+      address,
+      notes,
+      newPassword,
+    } = req.body;
+
+    const email = rawEmail !== undefined
+      ? (rawEmail ? String(rawEmail).toLowerCase().trim() : "")
+      : undefined;
+
+    // Validate mobile uniqueness — skip self
+    if (mobile !== undefined) {
+      const existing = await Member.findOne({ mobile, _id: { $ne: member._id } });
+      if (existing) {
+        res.status(409).json({ message: "Mobile number already registered to another member" });
+        return;
+      }
+    }
+
+    // Validate email uniqueness — skip self on both collections
+    if (email !== undefined && email !== "") {
+      // Member collection uniqueness
+      const existingMember = await Member.findOne({ email, _id: { $ne: member._id } });
+      if (existingMember) {
+        res.status(409).json({ message: "Email already registered to another member" });
+        return;
+      }
+
+      // User collection uniqueness — skip self by accountUserId (if linked) or by current email (if no link)
+      const userExclude: any = {};
+      if (member.accountUserId) {
+        userExclude._id = { $ne: member.accountUserId };
+      } else if (member.email) {
+        // The only User that could legitimately own this email is the one linked by old email
+        // so exclude users whose email matches the member's current email
+        userExclude.email = { $ne: member.email };
+      }
+      const conflictingUser = await User.findOne({ email, ...userExclude });
+      if (conflictingUser) {
+        res.status(409).json({ message: "Email already in use by another portal account" });
+        return;
+      }
+    }
+
+    const oldEmail = member.email;
+
+    // Apply field updates to the Member document
+    if (name !== undefined) member.name = name;
+    if (email !== undefined) member.email = email || undefined;
+    if (mobile !== undefined) member.mobile = mobile;
+    if (countryCode !== undefined) member.countryCode = countryCode;
+    if (gender !== undefined) member.gender = gender;
+    if (dob !== undefined) member.dob = dob ? new Date(dob) : null;
+    if (address !== undefined) member.address = address;
+    if (notes !== undefined) member.notes = notes;
+
+    await member.save();
+
+    const emailChanged = email !== undefined && email !== oldEmail;
+    const hasNewPassword = !!(newPassword && String(newPassword).trim().length >= 6);
+    const rawNewPassword = hasNewPassword ? String(newPassword).trim() : null;
+
+    // If email changed and member has accountUserId, update linked User.email
+    if (emailChanged && member.accountUserId) {
+      await User.findByIdAndUpdate(member.accountUserId, { email });
+    }
+
+    // If email changed and no accountUserId but a User exists with old email, update that User.email
+    if (emailChanged && !member.accountUserId && oldEmail) {
+      await User.updateOne({ email: oldEmail }, { $set: { email } });
+    }
+
+    // If newPassword (≥6 chars) provided and member has accountUserId, hash and update User.password
+    if (hasNewPassword && member.accountUserId) {
+      const hashed = await bcrypt.hash(rawNewPassword as string, 10);
+      await User.findByIdAndUpdate(member.accountUserId, { password: hashed });
+    }
+
+    // If email + newPassword (≥6 chars) provided and no linked account exists, create new User and link
+    if (email && hasNewPassword && !member.accountUserId) {
+      const hashed = await bcrypt.hash(rawNewPassword as string, 10);
+      const newUser = await User.create({
+        name: member.name,
+        email,
+        password: hashed,
+        role: "user",
+      });
+      member.accountUserId = newUser._id as any;
+      await member.save();
+    }
+
+    const populatedMember = await Member.findById(member._id).populate("planId", "name amount durationInDays");
+    res.json({ member: populatedMember });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err });
+  }
+};
+
 export const updateMemberPhoto = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const member = await Member.findById(req.params.id);
