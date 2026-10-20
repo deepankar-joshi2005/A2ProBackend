@@ -434,7 +434,11 @@ export const updateMemberBasicDetails = async (req: AuthRequest, res: Response):
     if (name !== undefined) member.name = name;
     if (email !== undefined) member.email = email || undefined;
     if (mobile !== undefined) member.mobile = mobile;
-    if (countryCode !== undefined) member.countryCode = countryCode;
+    if (countryCode !== undefined) {
+      // Normalise: store exactly one leading '+', e.g. "+91" not "++91"
+      const raw = String(countryCode).trim();
+      member.countryCode = raw.startsWith('+') ? raw : `+${raw}`;
+    }
     if (gender !== undefined) member.gender = gender;
     if (dob !== undefined) member.dob = dob ? new Date(dob) : null;
     if (address !== undefined) member.address = address;
